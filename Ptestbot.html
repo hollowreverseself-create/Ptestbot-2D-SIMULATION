@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ptestbot — Autonomous Soil Probing & Precision Seeding Rover</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        /* Custom keyframes for smooth rover drilling, probing, and seed drop effects */
+        @keyframes drillShake {
+            0%, 100% { transform: translate(-50%, -50%) rotate(0deg); }
+            25% { transform: translate(-50%, -50%) translateX(-2px) rotate(-3deg); }
+            50% { transform: translate(-50%, -50%) translateX(2px) rotate(3deg); }
+            75% { transform: translate(-50%, -50%) translateY(1px) rotate(-2deg); }
+        }
+        .rover-drilling {
+            animation: drillShake 0.12s linear infinite;
+        }
+
+        @keyframes spinAuger {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .auger-spin {
+            animation: spinAuger 0.35s linear infinite;
+        }
+
+        @keyframes probePulse {
+            0% { transform: scale(0.7); opacity: 0.95; }
+            100% { transform: scale(1.7); opacity: 0; }
+        }
+        .probe-ring {
+            animation: probePulse 0.9s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+        }
+
+        @keyframes tileReveal {
+            0% { transform: scale(0.85); opacity: 0.4; }
+            70% { transform: scale(1.04); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .tile-pop {
+            animation: tileReveal 0.35s ease-out forwards;
+        }
+
+        /* Custom sleek scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+            border-radius: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 6px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col selection:bg-emerald-500 selection:text-white">
+
+    <!-- Top Navigation Bar -->
+    <header class="border-b border-slate-800/90 bg-slate-900/90 backdrop-blur-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <!-- Brand Identity -->
+            <div class="flex items-center gap-3.5">
+                <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-950/60 border border-emerald-400/30 shrink-0">
+                    <!-- Inline Rover Icon SVG -->
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="4" y="6" width="16" height="9" rx="2" />
+                        <path stroke-linecap="round" d="M12 15v5m-2.5-2h5M8 6V3m8 3V3" />
+                        <circle cx="7.5" cy="18.5" r="2" />
+                        <circle cx="16.5" cy="18.5" r="2" />
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h1 class="text-xl font-extrabold tracking-tight text-white">Ptestbot</h1>
+                        <span class="px-2.5 py-0.5 text-[11px] font-mono font-bold uppercase tracking-wider rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            Prototype v1.0
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-0.5">Autonomous Soil Probing & Precision Seeding Rover</p>
+                </div>
+            </div>
+
+            <!-- SDG Badges & Firmware Modal Trigger -->
+            <div class="flex flex-wrap items-center gap-2.5">
+                <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs font-medium text-amber-300" title="UN Sustainable Development Goal 2: Zero Hunger">
+                    <span class="font-extrabold bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded text-[10px]">SDG 2</span>
+                    <span class="hidden md:inline">Zero Hunger</span>
+                </div>
+
+                <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-medium text-emerald-300" title="UN Sustainable Development Goal 15: Life on Land">
+                    <span class="font-extrabold bg-emerald-400 text-slate-950 px-1.5 py-0.2 rounded text-[10px]">SDG 15</span>
+                    <span class="hidden md:inline">Life on Land</span>
+                </div>
+
+                <button type="button" id="openCodeModalBtn" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-semibold shadow-md shadow-indigo-950/60 border border-indigo-400/30 flex items-center gap-1.5 transition cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                    <span>ESP32 C++ Firmware</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main 2-Column Responsive Dashboard -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- LEFT COLUMN: 6x6 Interactive Field Grid & Rover Visualization (7 Columns on Desktop) -->
+        <section class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col gap-5">
+            <!-- Header & Legend -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span>Field Sector Grid (6 × 6)</span>
+                        <span id="headerProgressBadge" class="text-xs font-mono px-2 py-0.5 rounded-md bg-slate-800 text-emerald-400 border border-slate-700">
+                            0 / 36 Scanned
+                        </span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Boustrophedon autonomous sweep • Click any scanned cell to inspect soil data</p>
+                </div>
+
+                <!-- Color Legend -->
+                <div class="flex flex-wrap items-center gap-2.5 text-[11px] font-medium bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800">
+                    <span class="flex items-center gap-1.5 text-amber-300">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block"></span> pH 5.0–5.9 (Crop A)
+                    </span>
+                    <span class="flex items-center gap-1.5 text-emerald-300">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block"></span> pH 6.0–7.2 (Crop B)
+                    </span>
+                    <span class="flex items-center gap-1.5 text-rose-300">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-rose-500 inline-block"></span> Unsuitable (Flagged)
+                    </span>
+                </div>
+            </div>
+
+            <!-- Responsive Square Grid Container -->
+            <div class="relative w-full aspect-square max-w-[540px] mx-auto bg-slate-950 p-2.5 sm:p-3.5 rounded-2xl border-2 border-slate-800 shadow-inner select-none overflow-hidden">
+                <!-- 36 Grid Cells -->
+                <div id="fieldGrid" class="grid grid-cols-6 grid-rows-6 gap-1.5 sm:gap-2 w-full h-full"></div>
+
+                <!-- Animated Rover Overlay -->
+                <div id="roverSprite" class="pointer-events-none absolute w-[14.2%] h-[14.2%] z-20 transition-all duration-300 ease-out" style="top: 8.33%; left: 8.33%; transform: translate(-50%, -50%);">
+                    <div id="roverBody" class="relative w-full h-full flex items-center justify-center">
+                        <!-- Custom Rover Top-Down Vector Graphic -->
+                        <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-[0_6px_12px_rgba(0,0,0,0.85)]">
+                            <!-- 4 Rugged Wheels -->
+                            <rect x="7" y="14" width="15" height="26" rx="4" fill="#1e293b" stroke="#94a3b8" stroke-width="2.5"/>
+                            <rect x="7" y="60" width="15" height="26" rx="4" fill="#1e293b" stroke="#94a3b8" stroke-width="2.5"/>
+                            <rect x="78" y="14" width="15" height="26" rx="4" fill="#1e293b" stroke="#94a3b8" stroke-width="2.5"/>
+                            <rect x="78" y="60" width="15" height="26" rx="4" fill="#1e293b" stroke="#94a3b8" stroke-width="2.5"/>
+                            <!-- Main Chassis -->
+                            <rect x="22" y="16" width="56" height="68" rx="12" fill="#0f172a" stroke="#10b981" stroke-width="4"/>
+                            <!-- Solar Panel Array -->
+                            <rect x="29" y="23" width="42" height="22" rx="4" fill="#065f46" stroke="#34d399" stroke-width="1.5"/>
+                            <line x1="43" y1="23" x2="43" y2="45" stroke="#34d399" stroke-width="1"/>
+                            <line x1="57" y1="23" x2="57" y2="45" stroke="#34d399" stroke-width="1"/>
+                            <line x1="29" y1="34" x2="71" y2="34" stroke="#34d399" stroke-width="1"/>
+                            <!-- Front Sensor Headlights -->
+                            <circle cx="34" cy="16" r="3.5" fill="#fde047"/>
+                            <circle cx="66" cy="16" r="3.5" fill="#fde047"/>
+                            <!-- Central Drill & Probe Turret -->
+                            <circle cx="50" cy="64" r="14" fill="#1e293b" stroke="#cbd5e1" stroke-width="2.5"/>
+                        </svg>
+
+                        <!-- Visual State 1: Spinning Drill Auger Overlay -->
+                        <div id="fxDrilling" class="hidden absolute inset-0 flex items-center justify-center">
+                            <div class="w-8 h-8 rounded-full border-4 border-dashed border-amber-400 bg-amber-500/20 auger-spin"></div>
+                        </div>
+
+                        <!-- Visual State 2: Lowering pH Probe Pulse Overlay -->
+                        <div id="fxProbing" class="hidden absolute inset-0 flex items-center justify-center">
+                            <div class="w-8 h-8 rounded-full border-2 border-cyan-300 bg-cyan-400/30 probe-ring"></div>
+                            <div class="absolute w-3.5 h-3.5 rounded-full bg-cyan-300 shadow-[0_0_12px_#22d3ee]"></div>
+                        </div>
+
+                        <!-- Visual State 3: Precision Seed Drop Indicator -->
+                        <div id="fxPlanting" class="hidden absolute inset-0 flex items-center justify-center">
+                            <div class="w-8 h-8 rounded-full bg-emerald-400/35 border-2 border-emerald-300 flex items-center justify-center shadow-lg">
+                                <span class="w-3 h-3 rounded-full bg-emerald-300 animate-ping"></span>
+                            </div>
+                        </div>
+
+                        <!-- Visual State 4: Soil Treatment Flag Indicator -->
+                        <div id="fxFlagging" class="hidden absolute inset-0 flex items-center justify-center">
+                            <div class="w-8 h-8 rounded-full bg-rose-500/35 border-2 border-rose-400 flex items-center justify-center shadow-lg">
+                                <span class="w-3 h-3 rounded-full bg-rose-400 animate-ping"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selected Sector Inspector Banner -->
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                    <span class="text-[11px] font-mono uppercase tracking-wider text-slate-400 block">Sector Telemetry Inspector</span>
+                    <p id="inspectorText" class="text-xs sm:text-sm text-slate-200 mt-0.5">
+                        Click <strong class="text-emerald-400">Start Mission</strong> or <strong class="text-slate-100">Step Next State</strong> to begin probing the field.
+                    </p>
+                </div>
+                <span id="inspectorBadge" class="self-start sm:self-center shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-slate-400">
+                    Coord: (0, 0)
+                </span>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: Controls, FSM Pipeline, Telemetry & Serial Log (5 Columns on Desktop) -->
+        <section class="lg:col-span-5 flex flex-col gap-5">
+
+            <!-- 1. Mission Controls & Speed Slider Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Mission Control Panel</h2>
+                    <span id="missionStatusPill" class="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                        STANDBY
+                    </span>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <button type="button" id="startPauseBtn" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-2 transition cursor-pointer">
+                        <svg id="playIcon" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                        </svg>
+                        <svg id="pauseIcon" class="w-4 h-4 hidden" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z" />
+                        </svg>
+                        <span id="startPauseLabel">Start Mission</span>
+                    </button>
+
+                    <button type="button" id="stepBtn" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-100 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer" title="Advance exactly one Finite State Machine step">
+                        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                        </svg>
+                        <span>Step Next State</span>
+                    </button>
+
+                    <button type="button" id="resetBtn" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer" title="Reset rover and generate randomized soil pH values">
+                        <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span>Reset Field</span>
+                    </button>
+                </div>
+
+                <!-- Simulation Speed Slider (1x to 5x) -->
+                <div class="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-4">
+                    <label for="speedSlider" class="text-xs font-semibold text-slate-300 whitespace-nowrap">
+                        Simulation Speed
+                    </label>
+                    <input id="speedSlider" type="range" min="1" max="5" step="1" value="2" class="w-full accent-emerald-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg" />
+                    <span id="speedValueBadge" class="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono text-xs font-bold min-w-[38px] text-center">
+                        2x
+                    </span>
+                </div>
+            </div>
+
+            <!-- 2. Live Finite State Machine (FSM) Monitor -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Finite State Machine (FSM) Pipeline</h2>
+                    <span id="activeStateName" class="text-xs font-mono font-bold text-emerald-400">IDLE</span>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2" id="fsmPipelineGrid">
+                    <div data-fsm="IDLE" class="fsm-node px-2.5 py-2 rounded-xl border border-emerald-400 bg-emerald-500/20 text-emerald-200 text-center font-mono text-[11px] font-bold transition-all">
+                        1. IDLE
+                    </div>
+                    <div data-fsm="NAVIGATING" class="fsm-node px-2.5 py-2 rounded-xl border border-slate-800 bg-slate-950 text-slate-500 text-center font-mono text-[11px] font-bold transition-all">
+                        2. NAVIGATING
+                    </div>
+                    <div data-fsm="DRILLING" class="fsm-node px-2.5 py-2 rounded-xl border border-slate-800 bg-slate-950 text-slate-500 text-center font-mono text-[11px] font-bold transition-all">
+                        3. DRILLING
+                    </div>
+                    <div data-fsm="PROBING_PH" class="fsm-node px-2.5 py-2 rounded-xl border border-slate-800 bg-slate-950 text-slate-500 text-center font-mono text-[11px] font-bold transition-all">
+                        4. PROBING_PH
+                    </div>
+                    <div data-fsm="EVALUATING" class="fsm-node px-2.5 py-2 rounded-xl border border-slate-800 bg-slate-950 text-slate-500 text-center font-mono text-[11px] font-bold transition-all">
+                        5. EVALUATING
+                    </div>
+                    <div data-fsm="ACTUATING" class="fsm-node px-2.5 py-2 rounded-xl border border-slate-800 bg-slate-950 text-slate-500 text-center font-mono text-[11px] font-bold transition-all">
+                        6. PLANT / FLAG
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Real-Time Telemetry Cards -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-3">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Live Rover Telemetry</h2>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    <!-- Sectors Scanned -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                        <div class="text-[11px] text-slate-400">Sectors Scanned</div>
+                        <div id="telScanned" class="text-lg font-extrabold font-mono text-white mt-0.5">0 / 36</div>
+                    </div>
+
+                    <!-- Current Coordinates -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                        <div class="text-[11px] text-slate-400">Current Coord (X, Y)</div>
+                        <div id="telCoords" class="text-lg font-extrabold font-mono text-cyan-400 mt-0.5">(0, 0)</div>
+                    </div>
+
+                    <!-- Last Measured pH -->
+                    <div class="col-span-2 sm:col-span-1 bg-slate-950 border border-slate-800 rounded-xl p-3">
+                        <div class="text-[11px] text-slate-400">Last Measured pH</div>
+                        <div id="telPh" class="text-lg font-extrabold font-mono text-amber-300 mt-0.5">--.-</div>
+                    </div>
+
+                    <!-- Crop A Planted -->
+                    <div class="bg-slate-950 border border-amber-500/25 rounded-xl p-3">
+                        <div class="text-[11px] text-amber-300/90 font-medium">Crop A (Potatoes)</div>
+                        <div id="telCropA" class="text-lg font-extrabold font-mono text-amber-300 mt-0.5">0</div>
+                        <div class="text-[10px] text-slate-500">pH 5.0 – 5.9</div>
+                    </div>
+
+                    <!-- Crop B Planted -->
+                    <div class="bg-slate-950 border border-emerald-500/25 rounded-xl p-3">
+                        <div class="text-[11px] text-emerald-300/90 font-medium">Crop B (Corn)</div>
+                        <div id="telCropB" class="text-lg font-extrabold font-mono text-emerald-400 mt-0.5">0</div>
+                        <div class="text-[10px] text-slate-500">pH 6.0 – 7.2</div>
+                    </div>
+
+                    <!-- Sectors Flagged -->
+                    <div class="col-span-2 sm:col-span-1 bg-slate-950 border border-rose-500/25 rounded-xl p-3">
+                        <div class="text-[11px] text-rose-300/90 font-medium">Sectors Flagged</div>
+                        <div id="telFlagged" class="text-lg font-extrabold font-mono text-rose-400 mt-0.5">0</div>
+                        <div class="text-[10px] text-slate-500">Lime / Sulfur Req</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Live Serial Telemetry Log -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-2.5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Serial Telemetry Log (115200 Baud)</h2>
+                    </div>
+                    <button type="button" id="clearLogBtn" class="text-[11px] font-medium text-slate-400 hover:text-white transition cursor-pointer">
+                        Clear Log
+                    </button>
+                </div>
+
+                <div id="serialLogBox" class="bg-slate-950 border border-slate-800 rounded-xl p-3 h-48 overflow-y-auto font-mono text-[11px] leading-relaxed space-y-1"></div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- ESP32 / Arduino Firmware Modal -->
+    <div id="codeModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+                <div>
+                    <h3 class="text-base font-bold text-white">Ptestbot — ESP32 / Arduino C++ Firmware</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Hardware control loop for auger drill, pH electrode servo, and dual-seed dispenser</p>
+                </div>
+                <button type="button" id="closeCodeModalBtn" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition cursor-pointer" aria-label="Close modal">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Code Viewer -->
+            <div class="p-4 overflow-y-auto flex-1 bg-slate-950 font-mono text-xs text-emerald-300 leading-relaxed">
+<pre id="firmwareSourceCode">// ============================================================================
+// PROJECT: Ptestbot (Prototype v1.0)
+// PURPOSE: Autonomous Soil Drilling, pH Sensing & Precision Seeding Rover
+// ALIGNMENT: UN SDG 2 (Zero Hunger) & UN SDG 15 (Life on Land)
+// ============================================================================
+
+#include &lt;ESP32Servo.h&gt;
+
+Servo drillActuator;   // Linear rack servo lowering the soil auger drill
+Servo phProbeServo;    // Servo arm lowering analog pH electrode probe
+Servo seedDispenser;   // Dual-chamber precision seed selector gate
+
+const int PIN_DRILL_SERVO = 13;
+const int PIN_PROBE_SERVO = 12;
+const int PIN_SEED_SERVO  = 14;
+const int PIN_DRILL_MOTOR = 27;
+const int PIN_PH_ANALOG   = 34; // Analog pH sensor input (12-bit ADC: 0-4095)
+
+void setup() {
+  Serial.begin(115200);
+
+  drillActuator.attach(PIN_DRILL_SERVO);
+  phProbeServo.attach(PIN_PROBE_SERVO);
+  seedDispenser.attach(PIN_SEED_SERVO);
+  pinMode(PIN_DRILL_MOTOR, OUTPUT);
+
+  // Stow all mechanical actuators safely before navigation
+  drillActuator.write(0);
+  phProbeServo.write(0);
+  seedDispenser.write(90); // 90 deg = closed neutral gate
+
+  Serial.println("[BOOT] Ptestbot Prototype v1.0 Firmware Initialized.");
+}
+
+void loop() {
+  // 1. NAVIGATING: Move rover to next GPS grid coordinate
+  Serial.println("\n[NAVIGATING] Moving to next field sector...");
+  delay(1200);
+
+  // 2. DRILLING: Bore 10 cm sample hole into topsoil
+  Serial.println("[DRILLING] Engaging auger motor and lowering drill...");
+  digitalWrite(PIN_DRILL_MOTOR, HIGH);
+  drillActuator.write(90);
+  delay(1800);
+  drillActuator.write(0);
+  digitalWrite(PIN_DRILL_MOTOR, LOW);
+  delay(400);
+
+  // 3. PROBING_PH: Insert pH sensor probe and read soil acidity
+  Serial.println("[PROBING_PH] Lowering pH electrode into sample bore...");
+  phProbeServo.write(90);
+  delay(1500);
+
+  int rawADC = analogRead(PIN_PH_ANALOG);
+  float soilPH = 4.2 + (rawADC / 4095.0) * 4.1; // Maps ADC reading to pH 4.2 - 8.3
+  Serial.print("[TELEMETRY] Measured Soil pH: ");
+  Serial.println(soilPH, 1);
+
+  phProbeServo.write(0); // Retract probe
+  delay(400);
+
+  // 4. EVALUATING &amp; ACTUATING: Precision Crop &amp; Soil Treatment Decision
+  if (soilPH &gt;= 5.0 &amp;&amp; soilPH &lt;= 5.9) {
+    Serial.println("[PLANTING] Acidic Optimal -&gt; Planting Crop A (Potatoes / Blueberries)");
+    seedDispenser.write(35);  // Open Chamber A
+    delay(500);
+    seedDispenser.write(90);  // Close gate
+  }
+  else if (soilPH &gt;= 6.0 &amp;&amp; soilPH &lt;= 7.2) {
+    Serial.println("[PLANTING] Neutral Optimal -&gt; Planting Crop B (Corn / Tomatoes)");
+    seedDispenser.write(145); // Open Chamber B
+    delay(500);
+    seedDispenser.write(90);  // Close gate
+  }
+  else if (soilPH &lt; 5.0) {
+    Serial.println("[FLAGGING] Too Acidic (&lt;5.0) -&gt; Flagged for Agricultural Lime. Seed skipped.");
+  }
+  else {
+    Serial.println("[FLAGGING] Too Alkaline (&gt;7.2) -&gt; Flagged for Sulfur Treatment. Seed skipped.");
+  }
+
+  delay(2000);
+}</pre>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-5 py-3.5 border-t border-slate-800 bg-slate-900 flex items-center justify-between">
+                <span id="copyStatusText" class="text-xs font-semibold text-emerald-400 opacity-0 transition-opacity duration-200">
+                    ✓ Firmware code copied to clipboard!
+                </span>
+                <div class="flex items-center gap-2.5">
+                    <button type="button" id="copyCodeBtn" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold transition cursor-pointer">
+                        Copy Code
+                    </button>
+                    <button type="button" id="closeModalFooterBtn" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition cursor-pointer">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Self-Contained Simulation Engine -->
+    <script>
+        (function () {
+            "use strict";
+
+            // =====================================================================
+            // CONFIGURATION & STATE VARIABLES
+            // =====================================================================
+            const GRID_DIM = 6;
+            const TOTAL_SECTORS = GRID_DIM * GRID_DIM;
+
+            // Ordered FSM pipeline states
+            const FSM_STATES = [
+                "IDLE",
+                "NAVIGATING",
+                "DRILLING",
+                "PROBING_PH",
+                "EVALUATING",
+                "ACTUATING"
+            ];
+
+            let gridCells = [];       // 2D array [y][x] storing soil data
+            let snakeWaypoints = [];  // Boustrophedon path [{x, y}, ...]
+            let waypointIndex = 0;    // Current index in snakeWaypoints
+            let currentState = "IDLE";
+            let isRunning = false;
+            let timerId = null;
+            let speedMultiplier = 2;
+
+            // Telemetry Counters
+            let telemetry = {
+                scanned: 0,
+                cropA: 0,
+                cropB: 0,
+                flagged: 0,
+                lastPh: null
+            };
+
+            // =====================================================================
+            // DOM ELEMENT REFERENCES
+            // =====================================================================
+            const fieldGridEl = document.getElementById("fieldGrid");
+            const roverSpriteEl = document.getElementById("roverSprite");
+            const roverBodyEl = document.getElementById("roverBody");
+            const fxDrillingEl = document.getElementById("fxDrilling");
+            const fxProbingEl = document.getElementById("fxProbing");
+            const fxPlantingEl = document.getElementById("fxPlanting");
+            const fxFlaggingEl = document.getElementById("fxFlagging");
+
+            const startPauseBtn = document.getElementById("startPauseBtn");
+            const startPauseLabel = document.getElementById("startPauseLabel");
+            const playIcon = document.getElementById("playIcon");
+            const pauseIcon = document.getElementById("pauseIcon");
+            const stepBtn = document.getElementById("stepBtn");
+            const resetBtn = document.getElementById("resetBtn");
+            const speedSlider = document.getElementById("speedSlider");
+            const speedValueBadge = document.getElementById("speedValueBadge");
+
+            const headerProgressBadge = document.getElementById("headerProgressBadge");
+            const missionStatusPill = document.getElementById("missionStatusPill");
+            const activeStateName = document.getElementById("activeStateName");
+            const inspectorText = document.getElementById("inspectorText");
+            const inspectorBadge = document.getElementById("inspectorBadge");
+
+            const telScanned = document.getElementById("telScanned");
+            const telCoords = document.getElementById("telCoords");
+            const telPh = document.getElementById("telPh");
+            const telCropA = document.getElementById("telCropA");
+            const telCropB = document.getElementById("telCropB");
+            const telFlagged = document.getElementById("telFlagged");
+
+            const serialLogBox = document.getElementById("serialLogBox");
+            const clearLogBtn = document.getElementById("clearLogBtn");
+
+            const codeModal = document.getElementById("codeModal");
+            const openCodeModalBtn = document.getElementById("openCodeModalBtn");
+            const closeCodeModalBtn = document.getElementById("closeCodeModalBtn");
+            const closeModalFooterBtn = document.getElementById("closeModalFooterBtn");
+            const copyCodeBtn = document.getElementById("copyCodeBtn");
+            const copyStatusText = document.getElementById("copyStatusText");
+            const firmwareSourceCode = document.getElementById("firmwareSourceCode");
+
+            // =====================================================================
+            // SOIL CLASSIFICATION LOGIC
+            // =====================================================================
+            function classifySoil(ph) {
+                if (ph >= 5.0 && ph <= 5.9) {
+                    return {
+                        type: "CROP_A",
+                        cropName: "Potatoes / Blueberries",
+                        shortTag: "Potatoes",
+                        category: "Acidic Optimal (pH 5.0–5.9)",
+                        actionSummary: "Planted Crop A (Potatoes / Blueberries)",
+                        cellClasses: "bg-amber-500/20 border-amber-400/70 text-amber-200",
+                        phTextClass: "text-amber-300",
+                        iconType: "cropA"
+                    };
+                }
+                if (ph >= 6.0 && ph <= 7.2) {
+                    return {
+                        type: "CROP_B",
+                        cropName: "Corn / Tomatoes",
+                        shortTag: "Corn",
+                        category: "Neutral Optimal (pH 6.0–7.2)",
+                        actionSummary: "Planted Crop B (Corn / Tomatoes)",
+                        cellClasses: "bg-emerald-500/20 border-emerald-400/70 text-emerald-200",
+                        phTextClass: "text-emerald-300",
+                        iconType: "cropB"
+                    };
+                }
+                const amendment = ph < 5.0 ? "Agricultural Lime" : "Sulfur Treatment";
+                return {
+                    type: "FLAGGED",
+                    cropName: amendment,
+                    shortTag: ph < 5.0 ? "Lime Req" : "Sulfur Req",
+                    category: ph < 5.0 ? "Too Acidic (< 5.0)" : "Too Alkaline (> 7.2)",
+                    actionSummary: "Seed Skipped — Flagged for Soil Treatment (" + amendment + ")",
+                    cellClasses: "bg-rose-500/20 border-rose-500/75 text-rose-200",
+                    phTextClass: "text-rose-300",
+                    iconType: "flagged"
+                };
+            }
+
+            // Crisp inline SVGs for revealed tiles
+            function getTileStatusIconSVG(iconType) {
+                if (iconType === "cropA") {
+                    return '<svg class="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20v-8m0 0c-3.5 0-6-2.5-6-6 3.5 0 6 2.5 6 6zm0 0c3.5 0 6-2.5 6-6-3.5 0-6 2.5-6 6z"/></svg>';
+                }
+                if (iconType === "cropB") {
+                    return '<svg class="w-4 h-4 sm:w-5 sm:h-5 text-emerald-300" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21V9m0 0C9 9 7 6.5 7 3.5c3 0 5 2.5 5 5.5zm0 0c3 0 5-2.5 5-5.5-3 0-5 2.5-5 5.5z"/></svg>';
+                }
+                return '<svg class="w-4 h-4 sm:w-5 sm:h-5 text-rose-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>';
+            }
+
+            // =====================================================================
+            // FIELD & PATH INITIALIZATION
+            // =====================================================================
+            function buildSnakeWaypoints() {
+                snakeWaypoints = [];
+                for (let y = 0; y < GRID_DIM; y++) {
+                    if (y % 2 === 0) {
+                        for (let x = 0; x < GRID_DIM; x++) {
+                            snakeWaypoints.push({ x: x, y: y });
+                        }
+                    } else {
+                        for (let x = GRID_DIM - 1; x >= 0; x--) {
+                            snakeWaypoints.push({ x: x, y: y });
+                        }
+                    }
+                }
+            }
+
+            function generateSoilGrid() {
+                gridCells = [];
+                // Create realistic soil pH patches (slightly acidic, neutral, and extreme zones)
+                const acidHotspot = { x: Math.floor(Math.random() * 3), y: Math.floor(Math.random() * 3) + 2 };
+                const alkHotspot = { x: Math.floor(Math.random() * 3) + 3, y: Math.floor(Math.random() * 3) };
+
+                for (let y = 0; y < GRID_DIM; y++) {
+                    const row = [];
+                    for (let x = 0; x < GRID_DIM; x++) {
+                        // Base pH oscillates naturally between 5.2 and 6.9
+                        let ph = 5.3 + Math.random() * 1.7;
+
+                        const distAcid = Math.hypot(x - acidHotspot.x, y - acidHotspot.y);
+                        const distAlk = Math.hypot(x - alkHotspot.x, y - alkHotspot.y);
+
+                        if (distAcid < 1.5) {
+                            ph -= (1.5 - distAcid) * 0.85;
+                        }
+                        if (distAlk < 1.5) {
+                            ph += (1.5 - distAlk) * 1.1;
+                        }
+
+                        // Clamp strictly to 4.2 - 8.3
+                        ph = Math.max(4.2, Math.min(8.3, Number(ph.toFixed(1))));
+
+                        row.push({
+                            x: x,
+                            y: y,
+                            ph: ph,
+                            revealed: false,
+                            result: null
+                        });
+                    }
+                    gridCells.push(row);
+                }
+            }
+
+            // =====================================================================
+            // RENDERING & VISUAL UPDATES
+            // =====================================================================
+            function renderFieldGrid() {
+                fieldGridEl.innerHTML = "";
+                for (let y = 0; y < GRID_DIM; y++) {
+                    for (let x = 0; x < GRID_DIM; x++) {
+                        const cell = gridCells[y][x];
+                        const btn = document.createElement("button");
+                        btn.type = "button";
+                        btn.addEventListener("click", function () {
+                            inspectCell(x, y);
+                        });
+
+                        let classes = "rounded-xl border p-1 sm:p-1.5 flex flex-col items-center justify-between transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer ";
+
+                        if (!cell.revealed) {
+                            classes += "bg-slate-900/90 border-slate-800 hover:border-slate-600 text-slate-500";
+                            btn.innerHTML =
+                                '<span class="w-full text-left text-[9px] font-mono text-slate-500">(' + x + ',' + y + ')</span>' +
+                                '<span class="text-[11px] font-mono text-slate-700">?</span>' +
+                                '<span class="w-full text-right text-[8px] font-mono text-slate-600">RAW</span>';
+                        } else {
+                            const info = cell.result;
+                            classes += info.cellClasses + " tile-pop shadow-sm";
+                            btn.innerHTML =
+                                '<div class="w-full flex items-center justify-between gap-0.5">' +
+                                    '<span class="text-[9px] font-mono opacity-80">(' + x + ',' + y + ')</span>' +
+                                    '<span class="text-[9px] sm:text-[10px] font-mono font-extrabold ' + info.phTextClass + '">' + cell.ph.toFixed(1) + '</span>' +
+                                '</div>' +
+                                '<div class="my-auto">' + getTileStatusIconSVG(info.iconType) + '</div>' +
+                                '<div class="w-full text-center text-[8px] sm:text-[9px] font-bold uppercase tracking-tight truncate">' + info.shortTag + '</div>';
+                        }
+
+                        btn.className = classes;
+                        fieldGridEl.appendChild(btn);
+                    }
+                }
+            }
+
+            function moveRoverSprite(x, y) {
+                const leftPercent = ((x + 0.5) * (100 / GRID_DIM)).toFixed(2);
+                const topPercent = ((y + 0.5) * (100 / GRID_DIM)).toFixed(2);
+                roverSpriteEl.style.left = leftPercent + "%";
+                roverSpriteEl.style.top = topPercent + "%";
+                telCoords.textContent = "(" + x + ", " + y + ")";
+            }
+
+            function updateFSMVisuals(state, actionType) {
+                currentState = state;
+                activeStateName.textContent = state === "ACTUATING"
+                    ? (actionType === "FLAGGED" ? "FLAGGING" : "PLANTING")
+                    : state;
+
+                // Update FSM pipeline nodes
+                const nodes = document.querySelectorAll(".fsm-node");
+                nodes.forEach(function (node) {
+                    const nodeState = node.getAttribute("data-fsm");
+                    if (nodeState === state) {
+                        node.className = "fsm-node px-2.5 py-2 rounded-xl border border-emerald-400 bg-emerald-500/20 text-emerald-200 text-center font-mono text-[11px] font-bold shadow-sm shadow-emerald-950 transition-all";
+                    } else {
+                        node.className = "fsm-node px-2.5 py-2 rounded-xl border border-slate-800 bg-slate-950 text-slate-500 text-center font-mono text-[11px] font-bold transition-all";
+                    }
+                });
+
+                // Reset all rover FX overlays
+                roverBodyEl.classList.remove("rover-drilling");
+                fxDrillingEl.classList.add("hidden");
+                fxProbingEl.classList.add("hidden");
+                fxPlantingEl.classList.add("hidden");
+                fxFlaggingEl.classList.add("hidden");
+
+                // Enable active mechanical indicator
+                if (state === "DRILLING") {
+                    roverBodyEl.classList.add("rover-drilling");
+                    fxDrillingEl.classList.remove("hidden");
+                } else if (state === "PROBING_PH") {
+                    fxProbingEl.classList.remove("hidden");
+                } else if (state === "ACTUATING") {
+                    if (actionType === "FLAGGED") {
+                        fxFlaggingEl.classList.remove("hidden");
+                    } else {
+                        fxPlantingEl.classList.remove("hidden");
+                    }
+                }
+            }
+
+            function updateTelemetryDisplay() {
+                telScanned.textContent = telemetry.scanned + " / " + TOTAL_SECTORS;
+                headerProgressBadge.textContent = telemetry.scanned + " / " + TOTAL_SECTORS + " Scanned";
+                telPh.textContent = telemetry.lastPh !== null ? telemetry.lastPh.toFixed(1) : "--.-";
+                telCropA.textContent = String(telemetry.cropA);
+                telCropB.textContent = String(telemetry.cropB);
+                telFlagged.textContent = String(telemetry.flagged);
+            }
+
+            function inspectCell(x, y) {
+                const cell = gridCells[y][x];
+                inspectorBadge.textContent = "Coord: (" + x + ", " + y + ")";
+                if (!cell.revealed) {
+                    inspectorText.innerHTML = 'Sector <strong class="text-slate-200">(' + x + ', ' + y + ')</strong> is unscanned. Underlying soil pH remains hidden until probed.';
+                    return;
+                }
+                const info = cell.result;
+                inspectorText.innerHTML =
+                    'Sector <strong class="text-white">(' + x + ', ' + y + ')</strong> • ' +
+                    '<strong class="' + info.phTextClass + '">pH ' + cell.ph.toFixed(1) + '</strong> (' + info.category + ') → ' +
+                    '<span class="text-slate-200">' + info.actionSummary + '</span>';
+            }
+
+            function appendSerialLog(msg, level) {
+                const now = new Date();
+                const hh = String(now.getHours()).padStart(2, "0");
+                const mm = String(now.getMinutes()).padStart(2, "0");
+                const ss = String(now.getSeconds()).padStart(2, "0");
+
+                const colorClasses = {
+                    system: "text-slate-400",
+                    nav: "text-sky-300",
+                    drill: "text-amber-300",
+                    probe: "text-cyan-300",
+                    plant: "text-emerald-400",
+                    flag: "text-rose-400"
+                };
+
+                const entry = document.createElement("div");
+                entry.className = colorClasses[level] || "text-slate-300";
+                entry.textContent = "[" + hh + ":" + mm + ":" + ss + "] " + msg;
+                serialLogBox.appendChild(entry);
+                serialLogBox.scrollTop = serialLogBox.scrollHeight;
+            }
+
+            // =====================================================================
+            // FINITE STATE MACHINE (FSM) EXECUTION ENGINE
+            // =====================================================================
+            function clearScheduledTimer() {
+                if (timerId !== null) {
+                    clearTimeout(timerId);
+                    timerId = null;
+                }
+            }
+
+            function scheduleNextTick() {
+                clearScheduledTimer();
+                if (!isRunning) return;
+                // Base step interval is 650ms at 1x speed, scaling down cleanly up to 5x
+                const intervalMs = Math.round(650 / speedMultiplier);
+                timerId = setTimeout(stepFSM, intervalMs);
+            }
+
+            function stepFSM() {
+                // Check if all 36 sectors are completed
+                if (waypointIndex >= snakeWaypoints.length) {
+                    isRunning = false;
+                    clearScheduledTimer();
+                    updateFSMVisuals("IDLE", null);
+                    updateControlButtonsUI();
+                    missionStatusPill.textContent = "MISSION COMPLETE";
+                    missionStatusPill.className = "px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+                    appendSerialLog("Sweep complete: All 36 sectors analyzed and logged.", "plant");
+                    return;
+                }
+
+                const wp = snakeWaypoints[waypointIndex];
+                const cell = gridCells[wp.y][wp.x];
+
+                if (currentState === "IDLE" || currentState === "ACTUATING") {
+                    // Transition -> NAVIGATING
+                    updateFSMVisuals("NAVIGATING", null);
+                    moveRoverSprite(wp.x, wp.y);
+                    appendSerialLog("NAVIGATING -> Moving to sector (" + wp.x + ", " + wp.y + ")", "nav");
+                } else if (currentState === "NAVIGATING") {
+                    // Transition -> DRILLING
+                    updateFSMVisuals("DRILLING", null);
+                    appendSerialLog("DRILLING -> Boring 10cm sample hole at (" + wp.x + ", " + wp.y + ")", "drill");
+                } else if (currentState === "DRILLING") {
+                    // Transition -> PROBING_PH
+                    updateFSMVisuals("PROBING_PH", null);
+                    telemetry.lastPh = cell.ph;
+                    updateTelemetryDisplay();
+                    appendSerialLog("PROBING_PH -> Electrode reading at (" + wp.x + ", " + wp.y + "): pH " + cell.ph.toFixed(1), "probe");
+                } else if (currentState === "PROBING_PH") {
+                    // Transition -> EVALUATING
+                    updateFSMVisuals("EVALUATING", null);
+                    const info = classifySoil(cell.ph);
+                    appendSerialLog("EVALUATING -> pH " + cell.ph.toFixed(1) + " classified as " + info.category, "system");
+                } else if (currentState === "EVALUATING") {
+                    // Transition -> ACTUATING (PLANTING or FLAGGING)
+                    const info = classifySoil(cell.ph);
+                    cell.revealed = true;
+                    cell.result = info;
+
+                    telemetry.scanned += 1;
+                    if (info.type === "CROP_A") {
+                        telemetry.cropA += 1;
+                        appendSerialLog("PLANTING -> Dispensed Crop A (Potatoes / Blueberries) at (" + wp.x + ", " + wp.y + ")", "plant");
+                    } else if (info.type === "CROP_B") {
+                        telemetry.cropB += 1;
+                        appendSerialLog("PLANTING -> Dispensed Crop B (Corn / Tomatoes) at (" + wp.x + ", " + wp.y + ")", "plant");
+                    } else {
+                        telemetry.flagged += 1;
+                        appendSerialLog("FLAGGING -> Unsuitable pH (" + cell.ph.toFixed(1) + "). Marked for " + info.cropName + ".", "flag");
+                    }
+
+                    updateFSMVisuals("ACTUATING", info.type);
+                    renderFieldGrid();
+                    updateTelemetryDisplay();
+                    inspectCell(wp.x, wp.y);
+
+                    // Advance to next waypoint for the subsequent cycle
+                    waypointIndex += 1;
+                }
+
+                if (isRunning) {
+                    scheduleNextTick();
+                }
+            }
+
+            // =====================================================================
+            // UI CONTROLS & EVENT LISTENERS
+            // =====================================================================
+            function updateControlButtonsUI() {
+                if (isRunning) {
+                    startPauseBtn.className = "px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-95 text-white text-xs font-bold shadow-lg shadow-amber-950/60 flex items-center justify-center gap-2 transition cursor-pointer";
+                    startPauseLabel.textContent = "Pause Mission";
+                    playIcon.classList.add("hidden");
+                    pauseIcon.classList.remove("hidden");
+                    missionStatusPill.textContent = "AUTONOMOUS RUN";
+                    missionStatusPill.className = "px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+                } else {
+                    startPauseBtn.className = "px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-2 transition cursor-pointer";
+                    startPauseLabel.textContent = (waypointIndex > 0 && waypointIndex < TOTAL_SECTORS) ? "Resume Mission" : "Start Mission";
+                    playIcon.classList.remove("hidden");
+                    pauseIcon.classList.add("hidden");
+                    if (waypointIndex < TOTAL_SECTORS) {
+                        missionStatusPill.textContent = waypointIndex > 0 ? "PAUSED" : "STANDBY";
+                        missionStatusPill.className = "px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-slate-800 text-slate-300 border border-slate-700";
+                    }
+                }
+            }
+
+            function resetSimulation() {
+                isRunning = false;
+                clearScheduledTimer();
+                waypointIndex = 0;
+                telemetry = {
+                    scanned: 0,
+                    cropA: 0,
+                    cropB: 0,
+                    flagged: 0,
+                    lastPh: null
+                };
+
+                generateSoilGrid();
+                renderFieldGrid();
+                updateFSMVisuals("IDLE", null);
+                moveRoverSprite(0, 0);
+                updateTelemetryDisplay();
+                updateControlButtonsUI();
+
+                inspectorBadge.textContent = "Coord: (0, 0)";
+                inspectorText.innerHTML = 'Field reset with randomized soil pH map. Press <strong class="text-emerald-400">Start Mission</strong> or <strong class="text-slate-100">Step Next State</strong>.';
+                appendSerialLog("SYSTEM -> Field reset. Generated new 6x6 soil pH distribution.", "system");
+            }
+
+            // Start / Pause Button
+            startPauseBtn.addEventListener("click", function () {
+                if (waypointIndex >= TOTAL_SECTORS) {
+                    resetSimulation();
+                }
+                isRunning = !isRunning;
+                updateControlButtonsUI();
+
+                if (isRunning) {
+                    stepFSM();
+                } else {
+                    clearScheduledTimer();
+                    appendSerialLog("SYSTEM -> Mission paused by operator.", "system");
+                }
+            });
+
+            // Step Next State Button
+            stepBtn.addEventListener("click", function () {
+                if (isRunning) {
+                    isRunning = false;
+                    clearScheduledTimer();
+                    updateControlButtonsUI();
+                }
+                if (waypointIndex >= TOTAL_SECTORS) {
+                    resetSimulation();
+                }
+                stepFSM();
+            });
+
+            // Reset Field Button
+            resetBtn.addEventListener("click", function () {
+                resetSimulation();
+            });
+
+            // Simulation Speed Slider
+            speedSlider.addEventListener("input", function (e) {
+                speedMultiplier = parseInt(e.target.value, 10) || 1;
+                speedValueBadge.textContent = speedMultiplier + "x";
+                if (isRunning) {
+                    scheduleNextTick();
+                }
+            });
+
+            // Clear Serial Log
+            clearLogBtn.addEventListener("click", function () {
+                serialLogBox.innerHTML = "";
+                appendSerialLog("SYSTEM -> Serial buffer cleared.", "system");
+            });
+
+            // Modal Open / Close / Copy Handlers
+            openCodeModalBtn.addEventListener("click", function () {
+                codeModal.classList.remove("hidden");
+            });
+
+            function closeCodeModal() {
+                codeModal.classList.add("hidden");
+            }
+
+            closeCodeModalBtn.addEventListener("click", closeCodeModal);
+            closeModalFooterBtn.addEventListener("click", closeCodeModal);
+
+            codeModal.addEventListener("click", function (e) {
+                if (e.target === codeModal) {
+                    closeCodeModal();
+                }
+            });
+
+            copyCodeBtn.addEventListener("click", function () {
+                const text = firmwareSourceCode.textContent;
+                const helper = document.createElement("textarea");
+                helper.value = text;
+                document.body.appendChild(helper);
+                helper.select();
+                document.execCommand("copy");
+                document.body.removeChild(helper);
+
+                copyStatusText.classList.remove("opacity-0");
+                setTimeout(function () {
+                    copyStatusText.classList.add("opacity-0");
+                }, 2200);
+            });
+
+            // =====================================================================
+            // INITIAL BOOTSTRAP
+            // =====================================================================
+            buildSnakeWaypoints();
+            resetSimulation();
+        })();
+    </script>
+</body>
+</html>
